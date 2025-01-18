@@ -1,0 +1,14 @@
+# Ignorar la carpeta del entorno virtual
+venv/
+
+# Ignorar credenciales sensibles
+credenciales.txt
+
+# Ignorar la carpeta generada por Terraform
+terraform/.terraform/
+
+# Ignorar archivos de estado de Terraform
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/crash.log
+terraform/terraform.tfstate.d/
