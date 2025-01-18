@@ -12,3 +12,6 @@ terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/crash.log
 terraform/terraform.tfstate.d/
+terraform/.terraform.lock.hcl
+__pycache__/
+*.pyc
