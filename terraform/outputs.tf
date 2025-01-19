@@ -12,3 +12,8 @@ output "iam_role_arn" {
   description = "ARN del rol IAM"
   value       = module.iam_role.role_arn
 }
+
+output "dynamo_table_name" {
+  description = "Dynamo Table Name"
+  value       = module.dynamo.table_name
+}

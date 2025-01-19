@@ -5,10 +5,11 @@ Este repositorio contiene una arquitectura de referencia para un sistema de proc
 ## Estructura General
 
 - **terraform/**: Contiene los módulos (VPC, IAM, Kinesis, Lambda, etc.) y `main.tf` para orquestarlos.
-- **app/**: Scripts de Python para ingesta (`kinesis_producer.py`) y procesamiento en tiempo real (`lambda_realtime.py`) y batch.
+- **app/**: Scripts de Python para ingesta (`kinesis_producer.py`, `stormglass_ingestion.py`) y procesamiento en tiempo real (`kinesis_lambda.py`) y batch (`batch_ingestion.py`).
+- **logs/**: Carpeta en la raíz para almacenar logs generados por los scripts.
 - **slides/**: Presentación (3-5 slides) con el resumen de la arquitectura, trade-offs y mejoras futuras.
 
-### Configuración del Entorno para Python
+## Configuración del Entorno para Python
 
 Si no tienes la carpeta `venv` y deseas asegurarte de que las dependencias estén disponibles para probar el script con el archivo `requirements.txt`, aquí tienes los pasos a seguir para crear un entorno limpio y reproducible:
 
@@ -51,106 +52,119 @@ Esto descargará e instalará las versiones específicas de las dependencias lis
 
 ---
 
-### **4. Probar el Script**
-Ahora puedes ejecutar el script en el entorno virtual:
-```bash
-python app/ingestion/kinesis_producer.py
-```
+### **4. Probar los Scripts**
 
----
+#### **Ejecutar los Scripts de Ingesta**
 
-### **5. Documentar el Proceso**
-En el `README.md` del repositorio, agrega instrucciones para los evaluadores sobre cómo configurar el entorno:
-
-```markdown
-### Instalación y Ejecución
-
-1. **Crear un entorno virtual:**
-   ```bash
-   python -m venv venv
-   ```
-
-2. **Activar el entorno virtual:**
-   - En Windows (PowerShell):
-     ```powershell
-     .\venv\Scripts\Activate
-     ```
-   - En Linux/MacOS:
-     ```bash
-     source venv/bin/activate
-     ```
-
-3. **Instalar dependencias:**
-   ```bash
-   pip install -r app/requirements.txt
-   ```
-
-4. **Ejecutar el script:**
+1. **Simulador IoT:**
    ```bash
    python app/ingestion/kinesis_producer.py
    ```
-```
+
+2. **API StormGlass:**
+   ```bash
+   python app/ingestion/stormglass_ingestion.py
+   ```
+
+3. **Batch Ingestion (Netflix Dataset):**
+   ```bash
+   python app/ingestion/batch_ingestion.py
+   ```
 
 ---
 
-### **6. Evitar Versionar la Carpeta `venv`**
-Asegúrate de que la carpeta `venv` no se suba al repositorio. Esto ya debería estar gestionado por tu `.gitignore`:
-```plaintext
-venv/
-```
+### **5. Verificar los Resultados**
+
+#### **Logs Locales**
+- Los logs generados por los scripts estarán en la carpeta `logs/` en la raíz del proyecto.
+  - Ejemplo: `logs/netflix_data.log`
+
+#### **Objetos en S3**
+- El archivo procesado por el script de batch ingestion se sube a S3 en la ruta:
+  - `s3://aws-data-ingestion-data-bucket/processed/netflix_titles_processed.csv`
+
+#### **Registros en Kinesis**
+- Listar shards:
+  ```bash
+  aws kinesis list-shards --stream-name aws-data-ingestion-data-stream
+  ```
+- Leer registros de un shard:
+  ```bash
+  aws kinesis get-records --shard-iterator <ShardIterator>
+  ```
+- Decodificar un registro:
+  ```bash
+  echo "<Base64String>" | base64 --decode
+  ```
 
 ---
 
-### **7. Verificar**
-Si sigues estos pasos, cualquier evaluador podrá configurar el entorno y ejecutar el script sin problemas. ¿Necesitas alguna ayuda adicional? 😊
+## Infraestructura
 
-## B. Arquitectura
+### **Despliegue con Terraform**
 
-1. **Ingesta en Tiempo Real**:  
-   - Se utilizan flujos de Kinesis para recibir datos de distintas fuentes (simuladas en `app/ingestion/kinesis_producer.py`).  
+1. Inicializa Terraform:
+   ```bash
+   terraform init
+   ```
 
-### **2. Probar el Script**
-```bash
-python app/ingestion/kinesis_producer.py
-```
+2. Verifica el plan:
+   ```bash
+   terraform plan
+   ```
 
-#### 3. **Listar registros (requiere un consumidor en Kinesis)**
-     ```bash
-     aws kinesis list-shards --stream-name aws-data-ingestion-data-stream
-     ```
-#### 4. **Obtener el iterador del shard:**
-     ```bash
-     aws kinesis get-shard-iterator \
-    --stream-name aws-data-ingestion-data-stream \
-    --shard-id shardId-000000000000 \
-    --shard-iterator-type TRIM_HORIZON
+3. Aplica los cambios:
+   ```bash
+   terraform apply
+   ```
 
-     ```
-#### 5. ** Leer registros del shard: Usa el iterador obtenido para leer registros:**
-     ```bash
-     aws kinesis get-records --shard-iterator <ShardIterator>
-     ```
-#### 6. **  Decodificar registro en Base64. **
-     ```bash
-     echo "eyJzZW5zb3JfaWQiOiAxLCAic2Vuc29yX3R5cGUiOiAidGVtcCIsICJ2YWx1ZSI6IDI5LjksICJ0aW1lc3RhbXAiOiAxNjg1NzQ2NTIwfQ==" | base64 --decode
+Esto creará los recursos necesarios en AWS:
+- Bucket S3 para almacenamiento.
+- Stream Kinesis para ingesta en tiempo real.
+- Roles IAM con permisos mínimos necesarios.
+- Lambda para procesamiento en tiempo real.
 
-     ```
-2. **Procesamiento en Tiempo Real (Lambda)**:  
-   - Una función Lambda suscrita a Kinesis (`Event Source Mapping`) procesa y almacena la data “cruda” en S3.  
+---
 
-3. **Almacenamiento**:  
-   - S3 para datos “raw”.  
-   - DynamoDB (o RDS) para almacenar datos procesados.  
+### **Mejoras Futuras**
 
-4. **Batch Processing (Step Functions)**:  
-   - Un workflow (State Machine) orquesta la lectura de datos de S3 y los procesa en modo batch, para finalmente dejarlos en DynamoDB (o en otra capa “curated”).  
+1. **Integración de Cost Optimization:**
+   - Uso de instancias spot para procesamiento batch.
 
-5. **Seguridad**:  
-   - VPC privada, subnets, NAT gateway, IAM con políticas de mínimo privilegio, cifrado en S3 y en el stream de Kinesis, etc.
+2. **Monitoreo Avanzado:**
+   - Incorporar AWS CloudWatch para crear alarmas personalizadas y tableros de monitoreo.
 
-## Despliegue Rápido
+3. **Pruebas Automatizadas:**
+   - CI/CD con validaciones automáticas para los scripts y configuración de Terraform.
 
-1. Clona el repositorio:  
+---
+
+### Instalación y Ejecución Resumida
+
+1. Clona el repositorio:
    ```bash
    git clone https://github.com/johnduartemoreno/cloud-architecture-challenge-aws.git
-   cd cloud-architecture-challenge-aws/terraform
+   cd cloud-architecture-challenge-aws
+   ```
+
+2. Configura el entorno:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r app/requirements.txt
+   ```
+
+3. Despliega la infraestructura:
+   ```bash
+   cd terraform
+   terraform init
+   terraform apply
+   ```
+
+4. Ejecuta los scripts de ingesta:
+   ```bash
+   python app/ingestion/kinesis_producer.py
+   python app/ingestion/stormglass_ingestion.py
+   python app/ingestion/batch_ingestion.py
+   ```
+

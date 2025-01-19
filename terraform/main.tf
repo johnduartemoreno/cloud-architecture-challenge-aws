@@ -28,3 +28,13 @@ module "iam_role" {
   kinesis_arn     = module.kinesis_stream.kinesis_arn
   s3_bucket_arn   = module.s3_bucket.bucket_arn
 }
+
+# Módulo para Dynamo
+module "dynamo" {
+  source      = "./modules/dynamodb"
+  table_name  = "${var.project_name}-audience-data"
+  hash_key    = "record_id"
+  environment = var.environment
+  project_name = var.project_name
+}
+
