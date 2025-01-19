@@ -1,76 +1,44 @@
-import requests
-import datetime
+import boto3
 import json
+import requests
 
-def get_stormglass_data(api_key, lat, lng, params=None, start=None, end=None):
-    """
-    Obtiene datos meteorológicos / oceánicos de StormGlass para
-    un punto (lat, lng) y un rango de fechas.
-    """
+# Configuración de AWS Kinesis
+kinesis_client = boto3.client("kinesis", region_name="us-east-1")
+KINESIS_STREAM_NAME = "aws-data-ingestion-data-stream"
 
-    # Endpoint base de StormGlass
-    url = "https://api.stormglass.io/v2/weather/point"
+# Configuración de Stormglass API
+API_URL = "https://api.stormglass.io/v2/weather/point"
+API_KEY = "8de6c8d4-d2ed-11ef-bb67-0242ac130003-8de6c92e-d2ed-11ef-bb67-0242ac130003"
 
-    # Si no se definen params, se da un ejemplo por defecto
-    if not params:
-        params = "waveHeight,waveDirection,windSpeed"
-
-    # Si no se definen start y end, se hace un intervalo simple
-    # Aquí, tomamos "hoy" y "hoy + 6 horas" como ejemplo
-    if not start:
-        start = datetime.datetime.utcnow().isoformat()
-    if not end:
-        end_time = datetime.datetime.utcnow() + datetime.timedelta(hours=6)
-        end = end_time.isoformat()
-
-    # Construimos un diccionario con los parámetros de la query
-    query_params = {
-        'lat': lat,
-        'lng': lng,
-        'params': params,
-        'start': start,
-        'end': end,
-        'source': 'sg'  # Fuente "StormGlass" (sg) para datos
+def fetch_stormglass_data():
+    params = {
+        "lat": 58.7984,
+        "lng": 17.8081,
+        "params": ",".join(["waveHeight", "waveDirection", "windSpeed"]),
+        "start": "2025-01-15",
+        "end": "2025-01-15",
+        "source": "sg"
     }
-
-    # Cabeceras: la API Key se va en "Authorization"
     headers = {
-        'Authorization': api_key
+        "Authorization": API_KEY
     }
+    response = requests.get(API_URL, params=params, headers=headers)
+    if response.status_code == 200:
+        return response.json()["hours"]
+    else:
+        print(f"Error: {response.status_code} - {response.text}")
+        return []
 
-    try:
-        response = requests.get(url, headers=headers, params=query_params)
-        response.raise_for_status()
-        data = response.json()
-        return data
-    except requests.exceptions.HTTPError as e:
-        print(f"Error HTTP: {e}")
-    except requests.exceptions.RequestException as e:
-        print(f"Error de conexión: {e}")
-
-    return None
+def send_to_kinesis(data):
+    for record in data:
+        response = kinesis_client.put_record(
+            StreamName=KINESIS_STREAM_NAME,
+            Data=json.dumps(record),
+            PartitionKey=str(record["time"])
+        )
+        print(f"Enviado a Kinesis: {response}")
 
 if __name__ == "__main__":
-    # Tu API Key de StormGlass
-    API_KEY = "8de6c8d4-d2ed-11ef-bb67-0242ac130003-8de6c92e-d2ed-11ef-bb67-0242ac130003"
-
-    # Ejemplo de coordenadas (lat, lng) - Costa
-    latitud = 58.7984
-    longitud = 17.8081
-
-    # Llamamos a la función
-    result = get_stormglass_data(API_KEY, latitud, longitud)
-
-    if result:
-        # Muestra datos crudos
-        print(json.dumps(result, indent=2))
-        # Aquí ya podrías parsear "hours" o la parte que te interese
-
-        # -------------------------------------------------------
-        # Ejemplo: ahora podrías enviar `result` a tu pipeline:
-        #   1. PutRecord en Kinesis
-        #   2. PutObject en S3
-        #   3. Procesarlo con una Lambda, etc.
-        # -------------------------------------------------------
-    else:
-        print("No se pudieron obtener datos de StormGlass.")
+    stormglass_data = fetch_stormglass_data()
+    if stormglass_data:
+        send_to_kinesis(stormglass_data)

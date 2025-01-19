@@ -15,3 +15,5 @@ terraform/terraform.tfstate.d/
 terraform/.terraform.lock.hcl
 __pycache__/
 *.pyc
+logs/
+README.pdf
