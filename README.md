@@ -4,10 +4,11 @@ Este repositorio contiene una arquitectura de referencia para un sistema de proc
 
 ## Estructura General
 
-- **terraform/**: Contiene los módulos (VPC, IAM, Kinesis, Lambda, etc.) y `main.tf` para orquestarlos.
+- **terraform/**: Contiene los módulos de infraestructura (IAM, Kinesis, Lambda, DynamoDB, etc.) y el archivo `main.tf` para la orquestación.
 - **app/**: Scripts de Python para ingesta (`kinesis_producer.py`, `stormglass_ingestion.py`) y procesamiento en tiempo real (`kinesis_lambda.py`) y batch (`batch_ingestion.py`).
-- **logs/**: Carpeta en la raíz para almacenar logs generados por los scripts.
-- **slides/**: Presentación (3-5 slides) con el resumen de la arquitectura, trade-offs y mejoras futuras.
+- **logs/**: Carpeta en la raíz del proyecto destinada a almacenar registros generados durante la ejecución de los scripts, facilitando el monitoreo y la depuración.
+- **slides/**: Presentación (3-5 diapositivas) con el resumen de la arquitectura, trade-offs y oportunidades de mejora.
+- **artefactos de ejecución (no versionados)**: Los archivos temporales generados como parte del workflow, tales como registros de ejecución (`logs/`) y respuestas de pruebas (`response.json`), no están versionados en el repositorio.
 
 ## Configuración del Entorno para Python
 
@@ -122,7 +123,7 @@ Esto creará los recursos necesarios en AWS:
 - Bucket S3 para almacenamiento.
 - Stream Kinesis para ingesta en tiempo real.
 - Roles IAM con permisos mínimos necesarios.
-- Lambda para procesamiento en tiempo real.
+- Lambdas para procesamiento en tiempo real y generación de resúmenes.
 
 ---
 

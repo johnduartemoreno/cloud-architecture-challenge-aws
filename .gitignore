@@ -16,4 +16,6 @@ terraform/.terraform.lock.hcl
 __pycache__/
 *.pyc
 logs/
+**/*.log
 README.pdf
+terraform/response.json

@@ -13,3 +13,8 @@ variable "s3_bucket_arn" {
 variable "kinesis_arn" {
   description = "ARN del stream de Kinesis"
 }
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+}

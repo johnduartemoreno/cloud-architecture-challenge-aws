@@ -25,6 +25,7 @@ module "iam_role" {
   source          = "./modules/iam"
   project_name    = var.project_name
   environment     = var.environment
+  region         = var.region
   kinesis_arn     = module.kinesis_stream.kinesis_arn
   s3_bucket_arn   = module.s3_bucket.bucket_arn
 }
@@ -36,5 +37,16 @@ module "dynamo" {
   hash_key    = "record_id"
   environment = var.environment
   project_name = var.project_name
+}
+
+# Módulo para Lambda Functions
+module "lambda" {
+  source            = "./modules/lambda"
+  project_name      = var.project_name
+  environment       = var.environment
+  region            = var.region
+  s3_bucket_name    = module.s3_bucket.bucket_name
+  kinesis_stream_arn = module.kinesis_stream.kinesis_arn
+  iam_role_arn      = module.iam_role.role_arn
 }
 
